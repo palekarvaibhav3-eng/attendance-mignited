@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Attendance Report Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 400px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #305496;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #1f3a73;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Attendance Report Generator</h2>
+
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <br>
+        <button type="submit">Generate Excel Report</button>
+    </form>
+</div>
+
+</body>
+</html>

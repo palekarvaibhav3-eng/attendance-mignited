@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Report Generated</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 450px;
+        }
+
+        h2 {
+            color: #305496;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            color: green;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #305496;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #1f3a73;
+        }
+
+        a {
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Attendance Report Ready ✅</h2>
+
+    <div class="success">
+        Your Excel report has been generated successfully.
+    </div>
+
+    <a href="/download/{{ filename }}">
+        <button>Download Excel Report</button>
+    </a>
+
+    <br><br>
+
+    <a href="/">
+        <button>Generate Another Report</button>
+    </a>
+</div>
+
+</body>
+</html>
