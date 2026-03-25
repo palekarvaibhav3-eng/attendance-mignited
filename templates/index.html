@@ -3,7 +3,6 @@
 <head>
     <title>Attendance Report Generator</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -23,13 +22,9 @@
             width: 400px;
         }
 
-        h2 {
-            margin-bottom: 20px;
-        }
+        h2 { margin-bottom: 20px; }
 
-        input[type="file"] {
-            margin-bottom: 20px;
-        }
+        input[type="file"] { margin-bottom: 20px; }
 
         button {
             background-color: #305496;
@@ -38,10 +33,24 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
         }
 
-        button:hover {
-            background-color: #1f3a73;
+        button:hover { background-color: #1f3a73; }
+
+        .emp-btn {
+            background-color: #0E6655;
+            margin-top: 16px;
+        }
+        .emp-btn:hover { background-color: #0a4f42; }
+
+        a { text-decoration: none; }
+
+        .divider {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 20px 0;
         }
     </style>
 </head>
@@ -55,6 +64,12 @@
         <br>
         <button type="submit">Generate Excel Report</button>
     </form>
+
+    <hr class="divider">
+
+    <a href="/employees">
+        <button class="emp-btn">⚙️ Manage Employees</button>
+    </a>
 </div>
 
 </body>

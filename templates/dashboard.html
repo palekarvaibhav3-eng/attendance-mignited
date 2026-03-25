@@ -61,7 +61,7 @@
         Your Excel report has been generated successfully.
     </div>
 
-    <a href="/download/{{ filename }}">
+    <a href="{{ url_for('download_file', filename=filename) }}">
         <button>Download Excel Report</button>
     </a>
 

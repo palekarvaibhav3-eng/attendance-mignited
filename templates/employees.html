@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manage Employees</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #1A5276;
+      color: #fff;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar h1 { font-size: 1.2rem; letter-spacing: 0.5px; }
+    .topbar a {
+      color: #aad4f5;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .topbar a:hover { color: #fff; }
+
+    /* ── Main layout ── */
+    .container {
+      max-width: 820px;
+      margin: 36px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .card-header {
+      background: #0E6655;
+      color: #fff;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 0.95rem;
+      letter-spacing: 0.4px;
+    }
+    .card-header.gold { background: #B8860B; }
+    .card-body { padding: 20px; }
+
+    /* ── Company name row ── */
+    .company-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .company-row input {
+      flex: 1;
+      padding: 9px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ── Employee table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+    }
+    thead tr { background: #1A5276; color: #fff; }
+    thead th { padding: 10px 14px; text-align: left; }
+    tbody tr { border-bottom: 1px solid #e8e8e8; }
+    tbody tr:hover { background: #f7fbff; }
+    tbody td { padding: 9px 14px; }
+    td.id-col { font-weight: bold; color: #1A5276; width: 80px; }
+
+    /* ── Inline edit ── */
+    .name-display { cursor: pointer; }
+    .name-display:hover { text-decoration: underline; color: #0E6655; }
+    .edit-input {
+      display: none;
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      font-size: 0.93rem;
+    }
+
+    /* ── Action buttons ── */
+    .btn {
+      padding: 7px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: bold;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-save   { background: #0E6655; color: #fff; }
+    .btn-delete { background: #c0392b; color: #fff; padding: 5px 11px; font-size: 0.82rem; }
+    .btn-add    { background: #B8860B; color: #fff; }
+    .btn-back   { background: #1A5276; color: #fff; }
+
+    /* ── Add form ── */
+    .add-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .add-row input {
+      padding: 9px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.93rem;
+    }
+    .add-row input[name="emp_id"]   { width: 100px; }
+    .add-row input[name="emp_name"] { flex: 1; min-width: 180px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #0E6655;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      z-index: 999;
+    }
+    #toast.error { background: #c0392b; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚙️ &nbsp; Employee Management</h1>
+  <a href="/">← Back to Home</a>
+</div>
+
+<div class="container">
+
+  <!-- Company Name -->
+  <div class="card">
+    <div class="card-header gold">🏢 &nbsp; Company Name</div>
+    <div class="card-body">
+      <div class="company-row">
+        <input type="text" id="companyInput" value="{{ company }}" placeholder="Enter company name" />
+        <button class="btn btn-save" onclick="saveCompany()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee List -->
+  <div class="card">
+    <div class="card-header">👥 &nbsp; Employees &nbsp;<span style="font-weight:normal;font-size:0.85rem;">(click a name to edit inline)</span></div>
+    <div class="card-body" style="padding:0;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th style="width:80px;text-align:center;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="empTable">
+          {% for emp in employees %}
+          <tr id="row-{{ emp.id }}">
+            <td class="id-col">{{ emp.id }}</td>
+            <td>
+              <span class="name-display" onclick="startEdit({{ emp.id }})">{{ emp.name }}</span>
+              <input class="edit-input" id="input-{{ emp.id }}"
+                     value="{{ emp.name }}"
+                     onblur="saveEdit({{ emp.id }})"
+                     onkeydown="if(event.key==='Enter') saveEdit({{ emp.id }}); if(event.key==='Escape') cancelEdit({{ emp.id }})" />
+            </td>
+            <td style="text-align:center;">
+              <button class="btn btn-delete" onclick="deleteEmployee({{ emp.id }})">Delete</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Employee -->
+  <div class="card">
+    <div class="card-header">➕ &nbsp; Add Employee</div>
+    <div class="card-body">
+      <div class="add-row">
+        <input type="number" name="emp_id"   id="newId"   placeholder="Employee ID" min="1" />
+        <input type="text"   name="emp_name" id="newName" placeholder="Employee Name" />
+        <button class="btn btn-add" onclick="addEmployee()">Add Employee</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;">
+    <a href="/"><button class="btn btn-back">← Back to Home</button></a>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+  function toast(msg, isError=false) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = isError ? "error" : "";
+    t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 2800);
+  }
+
+  function startEdit(id) {
+    document.querySelector(`#row-${id} .name-display`).style.display = "none";
+    const inp = document.getElementById(`input-${id}`);
+    inp.style.display = "inline-block";
+    inp.focus();
+    inp.select();
+  }
+
+  function cancelEdit(id) {
+    const span = document.querySelector(`#row-${id} .name-display`);
+    document.getElementById(`input-${id}`).style.display = "none";
+    span.style.display = "inline";
+  }
+
+  async function saveEdit(id) {
+    const inp  = document.getElementById(`input-${id}`);
+    const name = inp.value.trim();
+    if (!name) { cancelEdit(id); return; }
+
+    const fd = new FormData();
+    fd.append("emp_id",   id);
+    fd.append("emp_name", name);
+
+    const res = await fetch("/employees/edit", { method: "POST", body: fd });
+    if (res.ok) {
+      document.querySelector(`#row-${id} .name-display`).textContent = name;
+      cancelEdit(id);
+      toast(`✅ Updated employee ${id}`);
+    } else {
+      toast(await res.text(), true);
+      cancelEdit(id);
+    }
+  }
+
+  async function deleteEmployee(id) {
+    if (!confirm(`Delete employee ID ${id}?`)) return;
+    const fd = new FormData();
+    fd.append("emp_id", id);
+    const res = await fetch("/employees/delete", { method: "POST", body: fd });
+    if (res.ok) {
+      document.getElementById(`row-${id}`).remove();
+      toast(`🗑️ Deleted employee ${id}`);
+    } else {
+      toast(await res.text(), true);
+    }
+  }
+
+  async function addEmployee() {
+    const id   = document.getElementById("newId").value.trim();
+    const name = document.getElementById("newName").value.trim();
+    if (!id || !name) { toast("Please fill in both ID and Name", true); return; }
+
+    const fd = new FormData();
+    fd.append("emp_id",   id);
+    fd.append("emp_name", name);
+
+    const res = await fetch("/employees/add", { method: "POST", body: fd });
+    if (res.ok) {
+      // Add row to table
+      const tbody = document.getElementById("empTable");
+      const tr = document.createElement("tr");
+      tr.id = `row-${id}`;
+      tr.innerHTML = `
+        <td class="id-col">${id}</td>
+        <td>
+          <span class="name-display" onclick="startEdit(${id})">${name}</span>
+          <input class="edit-input" id="input-${id}" value="${name}"
+                 onblur="saveEdit(${id})"
+                 onkeydown="if(event.key==='Enter') saveEdit(${id}); if(event.key==='Escape') cancelEdit(${id})" />
+        </td>
+        <td style="text-align:center;">
+          <button class="btn btn-delete" onclick="deleteEmployee(${id})">Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+      document.getElementById("newId").value   = "";
+      document.getElementById("newName").value = "";
+      toast(`✅ Added employee ${id} — ${name}`);
+    } else {
+      toast(await res.text(), true);
+    }
+  }
+
+  async function saveCompany() {
+    const name = document.getElementById("companyInput").value.trim();
+    if (!name) { toast("Company name cannot be empty", true); return; }
+    const fd = new FormData();
+    fd.append("company_name", name);
+    const res = await fetch("/employees/company", { method: "POST", body: fd });
+    if (res.ok) toast("✅ Company name saved");
+    else toast(await res.text(), true);
+  }
+</script>
+
+</body>
+</html>
