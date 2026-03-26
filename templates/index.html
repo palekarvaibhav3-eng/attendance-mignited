@@ -12,7 +12,6 @@
             align-items: center;
             height: 100vh;
         }
-
         .container {
             background: white;
             padding: 40px;
@@ -21,13 +20,9 @@
             text-align: center;
             width: 400px;
         }
-
         h2 { margin-bottom: 20px; }
-
         input[type="file"] { margin-bottom: 20px; }
-
         button {
-            background-color: #305496;
             color: white;
             padding: 10px 20px;
             border: none;
@@ -35,42 +30,33 @@
             cursor: pointer;
             width: 100%;
             margin-top: 10px;
+            font-size: 0.95rem;
         }
-
-        button:hover { background-color: #1f3a73; }
-
-        .emp-btn {
-            background-color: #0E6655;
-            margin-top: 16px;
-        }
-        .emp-btn:hover { background-color: #0a4f42; }
-
+        .btn-blue  { background-color: #305496; }
+        .btn-blue:hover  { background-color: #1f3a73; }
+        .btn-green { background-color: #0E6655; }
+        .btn-green:hover { background-color: #0a4f42; }
+        .btn-gold  { background-color: #B8860B; }
+        .btn-gold:hover  { background-color: #9a7009; }
         a { text-decoration: none; }
-
-        .divider {
-            border: none;
-            border-top: 1px solid #e0e0e0;
-            margin: 20px 0;
-        }
+        .divider { border: none; border-top: 1px solid #e0e0e0; margin: 20px 0; }
     </style>
 </head>
 <body>
-
 <div class="container">
     <h2>Attendance Report Generator</h2>
-
     <form action="/upload" method="POST" enctype="multipart/form-data">
         <input type="file" name="file" required>
         <br>
-        <button type="submit">Generate Excel Report</button>
+        <button type="submit" class="btn-blue">📊 Generate Excel Report</button>
     </form>
-
     <hr class="divider">
-
+    <a href="/live">
+        <button class="btn-green">📡 Live Biometric Feed</button>
+    </a>
     <a href="/employees">
-        <button class="emp-btn">⚙️ Manage Employees</button>
+        <button class="btn-gold">⚙️ Manage Employees</button>
     </a>
 </div>
-
 </body>
 </html>

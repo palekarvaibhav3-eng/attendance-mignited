@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live Attendance Feed</title>
+  <meta http-equiv="refresh" content="30">  <!-- auto-refresh every 30 seconds -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      background: #1A5276;
+      color: #fff;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar h1 { font-size: 1.2rem; }
+    .topbar a  { color: #aad4f5; text-decoration: none; font-size: 0.9rem; }
+    .topbar a:hover { color: #fff; }
+
+    .container {
+      max-width: 800px;
+      margin: 36px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    .card-header {
+      background: #0E6655;
+      color: #fff;
+      padding: 12px 20px;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    .card-header.gold { background: #B8860B; }
+    .card-body { padding: 20px; }
+
+    .status-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .badge {
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    .badge.online  { background: #C6EFCE; color: #1e6631; }
+    .badge.offline { background: #FFC7CE; color: #9c1e1e; }
+
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: bold;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-green  { background: #0E6655; color: #fff; }
+    .btn-blue   { background: #1A5276; color: #fff; }
+    .btn-gold   { background: #B8860B; color: #fff; }
+    .btn:hover  { opacity: 0.85; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    thead tr { background: #1A5276; color: #fff; }
+    thead th { padding: 10px 14px; text-align: left; }
+    tbody tr { border-bottom: 1px solid #e8e8e8; }
+    tbody tr:hover { background: #f7fbff; }
+    tbody td { padding: 9px 14px; }
+    .emp-id { font-weight: bold; color: #1A5276; }
+    .time   { font-family: monospace; color: #0E6655; }
+
+    .empty {
+      text-align: center;
+      color: #999;
+      padding: 32px;
+      font-size: 0.95rem;
+    }
+
+    .refresh-note {
+      text-align: center;
+      color: #888;
+      font-size: 0.82rem;
+      margin-top: -12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📡 &nbsp; Live Attendance Feed</h1>
+  <a href="/">← Back to Home</a>
+</div>
+
+<div class="container">
+
+  <!-- Status Card -->
+  <div class="card">
+    <div class="card-header gold">🔌 &nbsp; Device Connection Status</div>
+    <div class="card-body">
+      <div class="status-row">
+        {% if punches %}
+          <span class="badge online">✅ Device Connected — Receiving Data</span>
+        {% else %}
+          <span class="badge offline">⚠️ No Data Yet — Waiting for Device</span>
+        {% endif %}
+
+        {% if report_exists %}
+          <a href="/download/Identix_Attendance_Report.xlsx" class="btn btn-green">
+            ⬇️ Download Latest Report
+          </a>
+        {% endif %}
+
+        <a href="/live" class="btn btn-blue">🔄 Refresh</a>
+      </div>
+
+      <p style="margin-top:14px; font-size:0.85rem; color:#555;">
+        Make sure your Identix device is set to:<br>
+        <strong>Server IP:</strong> same as this PC's IP &nbsp;|&nbsp;
+        <strong>Port:</strong> 10000 &nbsp;|&nbsp;
+        <strong>ADMS:</strong> Enabled
+      </p>
+    </div>
+  </div>
+
+  <!-- Live Punch Log -->
+  <div class="card">
+    <div class="card-header">🕐 &nbsp; Recent Punches &nbsp;<span style="font-weight:normal;font-size:0.82rem;">(last 50 — auto refreshes every 30 sec)</span></div>
+    <div class="card-body" style="padding:0;">
+      {% if punches %}
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Date &amp; Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in punches %}
+          <tr>
+            <td style="color:#aaa;">{{ loop.index }}</td>
+            <td class="emp-id">{{ p.emp_id }}</td>
+            <td>{{ p.name }}</td>
+            <td class="time">{{ p.datetime }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">
+        No punches received yet.<br>
+        Waiting for device to connect and send data...
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <p class="refresh-note">Page auto-refreshes every 30 seconds</p>
+
+  <div style="text-align:center; display:flex; gap:12px; justify-content:center;">
+    <a href="/"><button class="btn btn-blue">← Home</button></a>
+    <a href="/employees"><button class="btn btn-gold">⚙️ Manage Employees</button></a>
+  </div>
+
+</div>
+</body>
+</html>
