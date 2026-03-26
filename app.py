@@ -807,5 +807,100 @@ def download_file(filename):
     return send_file(os.path.join(UPLOAD_FOLDER, filename), as_attachment=True)
 
 
+# ==========================================================
+# LIVE BIOMETRIC RECEIVER  (Identix K21 / K30 Pro ADMS push)
+# ==========================================================
+LIVE_LOG = os.path.join(UPLOAD_FOLDER, "live_attendance.dat")
+_regen_lock = False   # prevent overlapping report regenerations
+
+def _append_punch(emp_id, datetime_str, verify, inout, workcode):
+    """Append a single punch line to live_attendance.dat"""
+    with open(LIVE_LOG, "a", encoding="utf-8") as f:
+        f.write(f"{emp_id}\t{datetime_str}\t{verify}\t{inout}\t{workcode}\t0\n")
+
+
+def _safe_regen():
+    """Regenerate the Excel report from live_attendance.dat safely."""
+    global _regen_lock
+    if _regen_lock:
+        return
+    _regen_lock = True
+    try:
+        global COMPANY_NAME, EMPLOYEES
+        COMPANY_NAME, EMPLOYEES = load_config()
+        if os.path.exists(LIVE_LOG) and os.path.getsize(LIVE_LOG) > 0:
+            generate_report(LIVE_LOG)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+    finally:
+        _regen_lock = False
+
+
+@app.route("/iclock/cdata", methods=["GET", "POST"])
+def biometric_receiver():
+    """
+    Identix ADMS endpoint. Device sends punches here automatically.
+    GET  — device handshake / info request
+    POST — actual attendance punch data
+    """
+    sn = request.args.get("SN") or request.form.get("SN", "DEVICE")
+
+    if request.method == "GET":
+        # Respond with server time so device stays in sync
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return (f"GET SUCCESSFUL\nStamp=9999\nServerTime={now}\n"), 200
+
+    # POST — parse punch records
+    # Device sends: SN=xxx&table=ATTLOG&Stamp=1&Data=EmpID Date Time Verify InOut WorkCode
+    table = request.form.get("table", "")
+    data  = request.form.get("Data", "")
+
+    if table == "ATTLOG" and data:
+        punches_added = 0
+        for line in data.strip().splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 5:
+                try:
+                    emp_id      = parts[0].strip()
+                    date_str    = parts[1].strip()
+                    time_str    = parts[2].strip()
+                    verify      = parts[3].strip()
+                    inout       = parts[4].strip()
+                    workcode    = parts[5].strip() if len(parts) > 5 else "0"
+                    datetime_str = f"{date_str} {time_str}"
+                    _append_punch(emp_id, datetime_str, verify, inout, workcode)
+                    punches_added += 1
+                except Exception:
+                    continue
+
+        if punches_added > 0:
+            # Regenerate report in background thread so device doesn't timeout
+            import threading
+            threading.Thread(target=_safe_regen, daemon=True).start()
+
+    return "OK", 200
+
+
+@app.route("/live")
+def live_status():
+    """Shows live punch log and last report generation time."""
+    punches = []
+    if os.path.exists(LIVE_LOG):
+        with open(LIVE_LOG, encoding="utf-8") as f:
+            for line in f.readlines()[-50:]:   # last 50 punches
+                parts = line.strip().split("\t")
+                if len(parts) >= 3:
+                    punches.append({
+                        "emp_id":   parts[0],
+                        "datetime": parts[1],
+                        "name":     EMPLOYEES.get(int(parts[0]), "Unknown") if parts[0].isdigit() else "Unknown"
+                    })
+    punches.reverse()   # latest first
+    return render_template("live.html", punches=punches,
+                           report_exists=os.path.exists(OUTPUT_FILE))
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
