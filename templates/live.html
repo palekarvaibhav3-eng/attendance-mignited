@@ -4,110 +4,86 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Live Attendance Feed</title>
-  <meta http-equiv="refresh" content="30">  <!-- auto-refresh every 30 seconds -->
+  <meta http-equiv="refresh" content="30">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      min-height: 100vh;
-    }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
 
     .topbar {
-      background: #1A5276;
-      color: #fff;
+      background: #1A5276; color: #fff;
       padding: 14px 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
     }
     .topbar h1 { font-size: 1.2rem; }
     .topbar a  { color: #aad4f5; text-decoration: none; font-size: 0.9rem; }
     .topbar a:hover { color: #fff; }
 
     .container {
-      max-width: 800px;
-      margin: 36px auto;
-      padding: 0 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
+      max-width: 900px; margin: 32px auto; padding: 0 16px;
+      display: flex; flex-direction: column; gap: 22px;
     }
 
-    .card {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-      overflow: hidden;
-    }
-    .card-header {
-      background: #0E6655;
-      color: #fff;
-      padding: 12px 20px;
-      font-weight: bold;
-      font-size: 0.95rem;
-    }
-    .card-header.gold { background: #B8860B; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
+    .card-header { color: #fff; padding: 12px 20px; font-weight: bold; font-size: 0.95rem; }
+    .card-header.teal  { background: #0E6655; }
+    .card-header.gold  { background: #B8860B; }
+    .card-header.blue  { background: #1A5276; }
     .card-body { padding: 20px; }
 
-    .status-row {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      flex-wrap: wrap;
+    /* Filter buttons */
+    .filter-row {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     }
-    .badge {
-      padding: 8px 18px;
-      border-radius: 20px;
-      font-weight: bold;
-      font-size: 0.9rem;
+    .filter-row span { font-weight: bold; font-size: 0.9rem; color: #555; margin-right: 4px; }
+    .filter-btn {
+      padding: 8px 18px; border: 2px solid #1A5276;
+      border-radius: 20px; background: #fff; color: #1A5276;
+      cursor: pointer; font-size: 0.88rem; font-weight: bold;
+      text-decoration: none; transition: all 0.15s;
     }
+    .filter-btn:hover { background: #1A5276; color: #fff; }
+    .filter-btn.active { background: #1A5276; color: #fff; }
+
+    /* Download button */
+    .dl-btn {
+      padding: 9px 20px; background: #0E6655; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 0.92rem; font-weight: bold; text-decoration: none;
+      display: inline-block; transition: opacity 0.15s;
+    }
+    .dl-btn:hover { opacity: 0.85; }
+
+    .action-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+    /* Status badge */
+    .badge { padding: 7px 16px; border-radius: 20px; font-weight: bold; font-size: 0.88rem; }
     .badge.online  { background: #C6EFCE; color: #1e6631; }
     .badge.offline { background: #FFC7CE; color: #9c1e1e; }
 
-    .btn {
-      padding: 8px 18px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: bold;
-      text-decoration: none;
-      display: inline-block;
-    }
-    .btn-green  { background: #0E6655; color: #fff; }
-    .btn-blue   { background: #1A5276; color: #fff; }
-    .btn-gold   { background: #B8860B; color: #fff; }
-    .btn:hover  { opacity: 0.85; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.92rem;
-    }
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
     thead tr { background: #1A5276; color: #fff; }
     thead th { padding: 10px 14px; text-align: left; }
     tbody tr { border-bottom: 1px solid #e8e8e8; }
-    tbody tr:hover { background: #f7fbff; }
+    tbody tr:nth-child(even) { background: #f7fbff; }
+    tbody tr:hover { background: #eaf4fb; }
     tbody td { padding: 9px 14px; }
     .emp-id { font-weight: bold; color: #1A5276; }
     .time   { font-family: monospace; color: #0E6655; }
 
-    .empty {
-      text-align: center;
-      color: #999;
-      padding: 32px;
-      font-size: 0.95rem;
-    }
+    .empty { text-align: center; color: #999; padding: 32px; font-size: 0.95rem; }
+    .count { font-size: 0.85rem; color: #666; margin-top: 8px; }
+    .refresh-note { text-align: center; color: #999; font-size: 0.8rem; }
 
-    .refresh-note {
-      text-align: center;
-      color: #888;
-      font-size: 0.82rem;
-      margin-top: -12px;
+    .nav-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .nav-btn {
+      padding: 9px 20px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 0.9rem; font-weight: bold;
+      text-decoration: none; color: #fff;
     }
+    .nav-btn.blue { background: #1A5276; }
+    .nav-btn.gold { background: #B8860B; }
+    .nav-btn:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -119,38 +95,74 @@
 
 <div class="container">
 
-  <!-- Status Card -->
+  <!-- Status -->
   <div class="card">
-    <div class="card-header gold">🔌 &nbsp; Device Connection Status</div>
+    <div class="card-header gold">🔌 &nbsp; Device Status</div>
     <div class="card-body">
-      <div class="status-row">
+      <div class="action-row">
         {% if punches %}
-          <span class="badge online">✅ Device Connected — Receiving Data</span>
+          <span class="badge online">✅ Device Connected</span>
         {% else %}
-          <span class="badge offline">⚠️ No Data Yet — Waiting for Device</span>
+          <span class="badge offline">⚠️ No Data Yet</span>
         {% endif %}
-
-        {% if report_exists %}
-          <a href="/download/Identix_Attendance_Report.xlsx" class="btn btn-green">
-            ⬇️ Download Latest Report
-          </a>
-        {% endif %}
-
-        <a href="/live" class="btn btn-blue">🔄 Refresh</a>
+        <a href="/live?filter={{ filter_type }}" class="dl-btn" style="background:#1A5276;">🔄 Refresh</a>
       </div>
-
-      <p style="margin-top:14px; font-size:0.85rem; color:#555;">
-        Make sure your Identix device is set to:<br>
-        <strong>Server IP:</strong> same as this PC's IP &nbsp;|&nbsp;
-        <strong>Port:</strong> 10000 &nbsp;|&nbsp;
-        <strong>ADMS:</strong> Enabled
-      </p>
     </div>
   </div>
 
-  <!-- Live Punch Log -->
+  <!-- Filter + Download -->
   <div class="card">
-    <div class="card-header">🕐 &nbsp; Recent Punches &nbsp;<span style="font-weight:normal;font-size:0.82rem;">(last 50 — auto refreshes every 30 sec)</span></div>
+    <div class="card-header teal">📅 &nbsp; Select Date Range</div>
+    <div class="card-body" style="display:flex; flex-direction:column; gap:16px;">
+
+      <div class="filter-row">
+        <span>View:</span>
+        <a href="/live?filter=today"      class="filter-btn {% if filter_type == 'today'      %}active{% endif %}">Today</a>
+        <a href="/live?filter=week"       class="filter-btn {% if filter_type == 'week'       %}active{% endif %}">This Week</a>
+        <a href="/live?filter=last_week"  class="filter-btn {% if filter_type == 'last_week'  %}active{% endif %}">Last Week</a>
+        <a href="/live?filter=month"      class="filter-btn {% if filter_type == 'month'      %}active{% endif %}">This Month</a>
+        <a href="/live?filter=last_month" class="filter-btn {% if filter_type == 'last_month' %}active{% endif %}">Last Month</a>
+        <a href="/live?filter=year"       class="filter-btn {% if filter_type == 'year'       %}active{% endif %}">This Year</a>
+        <a href="/live?filter=all"        class="filter-btn {% if filter_type == 'all'        %}active{% endif %}">All Data</a>
+      </div>
+
+      <!-- Custom date range -->
+      <form method="GET" action="/live" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+        <input type="hidden" name="filter" value="custom">
+        <label style="font-size:0.85rem;font-weight:bold;color:#555;">Custom:</label>
+        <input type="date" name="start" value="{{ custom_start }}"
+               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.88rem;">
+        <span style="color:#888;">to</span>
+        <input type="date" name="end" value="{{ custom_end }}"
+               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.88rem;">
+        <button type="submit" class="dl-btn" style="padding:7px 14px;font-size:0.88rem;">Apply</button>
+      </form>
+
+      {% if punches %}
+      <div class="action-row">
+        <a href="/live/download?filter={{ filter_type }}{% if filter_type == 'custom' %}&start={{ custom_start }}&end={{ custom_end }}{% endif %}" class="dl-btn">
+          ⬇️ Download Excel
+          ({% if filter_type == 'today' %}Today
+          {% elif filter_type == 'week' %}This Week
+          {% elif filter_type == 'last_week' %}Last Week
+          {% elif filter_type == 'month' %}This Month
+          {% elif filter_type == 'last_month' %}Last Month
+          {% elif filter_type == 'year' %}This Year
+          {% elif filter_type == 'custom' %}{{ custom_start }} to {{ custom_end }}
+          {% else %}All Data{% endif %})
+        </a>
+        <span class="count">{{ punches|length }} punch records found</span>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Punch Table -->
+  <div class="card">
+    <div class="card-header blue">🕐 &nbsp; Punch Records
+      &nbsp;<span style="font-weight:normal; font-size:0.82rem;">(auto refreshes every 30 sec)</span>
+    </div>
     <div class="card-body" style="padding:0;">
       {% if punches %}
       <table>
@@ -175,8 +187,8 @@
       </table>
       {% else %}
       <div class="empty">
-        No punches received yet.<br>
-        Waiting for device to connect and send data...
+        No punch records found for the selected period.<br><br>
+        <small>Try selecting a different date range above.</small>
       </div>
       {% endif %}
     </div>
@@ -184,9 +196,9 @@
 
   <p class="refresh-note">Page auto-refreshes every 30 seconds</p>
 
-  <div style="text-align:center; display:flex; gap:12px; justify-content:center;">
-    <a href="/"><button class="btn btn-blue">← Home</button></a>
-    <a href="/employees"><button class="btn btn-gold">⚙️ Manage Employees</button></a>
+  <div class="nav-btns">
+    <a href="/"          class="nav-btn blue">← Home</a>
+    <a href="/employees" class="nav-btn gold">⚙️ Manage Employees</a>
   </div>
 
 </div>

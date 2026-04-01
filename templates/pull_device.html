@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pull Data from Device</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; min-height: 100vh; }
+    .topbar { background: #1A5276; color: #fff; padding: 14px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .topbar h1 { font-size: 1.2rem; }
+    .topbar a { color: #aad4f5; text-decoration: none; font-size: 0.9rem; }
+    .topbar a:hover { color: #fff; }
+    .container { max-width: 580px; margin: 40px auto; padding: 0 16px; display: flex; flex-direction: column; gap: 20px; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
+    .card-header { color: #fff; padding: 12px 20px; font-weight: bold; font-size: 0.95rem; }
+    .card-header.green { background: #0E6655; }
+    .card-header.gold  { background: #B8860B; }
+    .card-header.blue  { background: #1A5276; }
+    .card-header.red   { background: #922B21; }
+    .card-body { padding: 22px; }
+    .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .filter-option input[type="radio"] { display: none; }
+    .filter-option label { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 10px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.15s; text-align: center; }
+    .filter-option label:hover { border-color: #1A5276; background: #f0f7ff; }
+    .filter-option input[type="radio"]:checked + label { border-color: #0E6655; background: #e8f5f1; color: #0E6655; }
+    .filter-icon { font-size: 1.6rem; margin-bottom: 5px; }
+    .filter-title { font-weight: bold; font-size: 0.9rem; }
+    .filter-desc { font-size: 0.76rem; color: #888; margin-top: 3px; }
+    .filter-option input[type="radio"]:checked + label .filter-desc { color: #0a6648; }
+    .filter-full { grid-column: span 2; }
+    .filter-full label { flex-direction: row; gap: 12px; padding: 12px 18px; }
+    .filter-full .filter-icon { font-size: 1.4rem; margin: 0; }
+    .custom-row { display: none; gap: 12px; align-items: center; flex-wrap: wrap; padding: 14px; background: #f0f7ff; border-radius: 8px; margin-bottom: 16px; }
+    .custom-row label { font-weight: bold; font-size: 0.88rem; color: #1A5276; white-space: nowrap; }
+    .custom-row input[type="date"] { padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; }
+    .pull-btn { width: 100%; padding: 13px; background: #0E6655; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    .pull-btn:hover { opacity: 0.85; }
+    .device-info { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.88rem; color: #555; }
+    .device-info span { background: #f0f7ff; padding: 5px 12px; border-radius: 20px; }
+    .device-info strong { color: #1A5276; }
+    .result-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    .result-table td { padding: 10px 14px; border: 1px solid #e0e0e0; font-size: 0.93rem; }
+    .result-table tr:nth-child(odd) { background: #f7f9fc; }
+    .val-green { color: #0E6655; font-weight: bold; }
+    .val-grey  { color: #888; font-weight: bold; }
+    .val-blue  { color: #1A5276; font-weight: bold; }
+    .msg-success { background: #C6EFCE; color: #1e6631; padding: 12px 16px; border-radius: 6px; font-weight: bold; margin-bottom: 14px; }
+    .msg-error   { background: #FFC7CE; color: #9c1e1e; padding: 12px 16px; border-radius: 6px; font-weight: bold; margin-bottom: 14px; }
+    .msg-warning { background: #FFF3CD; color: #856404; padding: 12px 16px; border-radius: 6px; margin-bottom: 14px; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .btn { padding: 9px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; color: #fff; text-decoration: none; display: inline-block; }
+    .btn:hover { opacity: 0.85; }
+    .btn-green { background: #0E6655; }
+    .btn-gold  { background: #B8860B; }
+    .btn-blue  { background: #1A5276; }
+    .spinner { display: none; text-align: center; padding: 10px; color: #0E6655; font-weight: bold; }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <h1>📥 &nbsp; Pull Data from Device</h1>
+  <a href="/">← Back to Home</a>
+</div>
+<div class="container">
+
+  <!-- Device Info -->
+  <div class="card">
+    <div class="card-header blue">🔌 &nbsp; Connected Device</div>
+    <div class="card-body">
+      <div class="device-info">
+        <span>📡 IP: <strong>{{ device_ip }}</strong></span>
+        <span>🔌 Port: <strong>{{ device_port }}</strong></span>
+      </div>
+      <p style="font-size:0.82rem;color:#aaa;margin-top:10px;">
+        Wrong settings? <a href="/device-settings" style="color:#1A5276;">Change device settings</a>
+      </p>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="card">
+    <div class="card-header red">❌ &nbsp; Connection Failed</div>
+    <div class="card-body">
+      <div class="msg-error">{{ error }}</div>
+      <p style="color:#555;font-size:0.9rem;">Please check:<br>
+        • Device is ON and LAN cable connected<br>
+        • Device IP is <strong>{{ device_ip }}</strong> port <strong>{{ device_port }}</strong><br>
+        • Run: <code>pip install pyzk</code>
+      </p>
+      <div class="btn-row">
+        <a href="/device-settings" class="btn btn-gold">🔧 Device Settings</a>
+        <a href="/" class="btn btn-blue">← Home</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if success %}
+  <div class="card">
+    <div class="card-header green">✅ &nbsp; Pull Complete — {{ filter_label }}</div>
+    <div class="card-body">
+      {% if added > 0 %}
+        <div class="msg-success">✅ {{ added }} new records added!</div>
+      {% else %}
+        <div class="msg-warning">⚠️ No new records — all already in master log.</div>
+      {% endif %}
+      <table class="result-table">
+        <tr><td>Total records on device</td><td class="val-blue">{{ total_device }}</td></tr>
+        <tr><td>Records in selected period</td><td class="val-blue">{{ filtered_count }}</td></tr>
+        <tr><td>New records added</td><td class="val-green">{{ added }}</td></tr>
+        <tr><td>Duplicates skipped</td><td class="val-grey">{{ skipped }}</td></tr>
+      </table>
+      <div class="btn-row">
+        <a href="/live?filter={{ filter_type }}" class="btn btn-green">📡 View Data</a>
+        <a href="/live/download?filter={{ filter_type }}" class="btn btn-gold">⬇️ Download Excel</a>
+        <a href="/pull-device" class="btn btn-blue">📥 Pull Again</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not success %}
+  <div class="card">
+    <div class="card-header green">📅 &nbsp; Select Date Range to Pull</div>
+    <div class="card-body">
+      <form method="POST" onsubmit="showSpinner()">
+
+        <div class="filter-grid">
+          <div class="filter-option">
+            <input type="radio" name="filter" id="f_today" value="today" checked>
+            <label for="f_today"><span class="filter-icon">📅</span><span class="filter-title">Today</span><span class="filter-desc">Today's punches only</span></label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="filter" id="f_week" value="week">
+            <label for="f_week"><span class="filter-icon">📆</span><span class="filter-title">This Week</span><span class="filter-desc">Last 7 days</span></label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="filter" id="f_last_week" value="last_week">
+            <label for="f_last_week"><span class="filter-icon">⏮️</span><span class="filter-title">Last Week</span><span class="filter-desc">Previous week (Mon–Sun)</span></label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="filter" id="f_month" value="month">
+            <label for="f_month"><span class="filter-icon">🗓️</span><span class="filter-title">This Month</span><span class="filter-desc">Current month</span></label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="filter" id="f_last_month" value="last_month">
+            <label for="f_last_month"><span class="filter-icon">📋</span><span class="filter-title">Last Month</span><span class="filter-desc">Previous month</span></label>
+          </div>
+          <div class="filter-option">
+            <input type="radio" name="filter" id="f_year" value="year">
+            <label for="f_year"><span class="filter-icon">📊</span><span class="filter-title">This Year</span><span class="filter-desc">Current year</span></label>
+          </div>
+          <div class="filter-option filter-full">
+            <input type="radio" name="filter" id="f_custom" value="custom" onchange="toggleCustom()">
+            <label for="f_custom"><span class="filter-icon">✏️</span><div><span class="filter-title">Custom Range</span><span class="filter-desc">Pick your own start and end date</span></div></label>
+          </div>
+          <div class="filter-option filter-full">
+            <input type="radio" name="filter" id="f_all" value="all">
+            <label for="f_all"><span class="filter-icon">🗄️</span><div><span class="filter-title">All Data</span><span class="filter-desc">Everything stored on device</span></div></label>
+          </div>
+        </div>
+
+        <!-- Custom date range -->
+        <div class="custom-row" id="customRow">
+          <label>From:</label>
+          <input type="date" name="start" id="startDate">
+          <label>To:</label>
+          <input type="date" name="end" id="endDate">
+        </div>
+
+        <div class="spinner" id="spinner">⏳ Connecting to device...</div>
+        <button type="submit" class="pull-btn">📥 Pull Data from Device</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+<script>
+  function toggleCustom() {
+    const row = document.getElementById('customRow');
+    row.style.display = document.getElementById('f_custom').checked ? 'flex' : 'none';
+  }
+  // Also hide custom row when other filters selected
+  document.querySelectorAll('input[name="filter"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('customRow').style.display =
+        document.getElementById('f_custom').checked ? 'flex' : 'none';
+    });
+  });
+  function showSpinner() {
+    if (document.getElementById('f_custom').checked) {
+      const s = document.getElementById('startDate').value;
+      const e = document.getElementById('endDate').value;
+      if (!s || !e) { alert('Please select both start and end dates.'); return false; }
+    }
+    document.getElementById('spinner').style.display = 'block';
+  }
+</script>
+</body>
+</html>

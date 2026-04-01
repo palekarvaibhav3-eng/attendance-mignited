@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Device Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f2f5; min-height: 100vh; }
+    .topbar {
+      background: #1A5276; color: #fff;
+      padding: 14px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .topbar h1 { font-size: 1.2rem; }
+    .topbar a { color: #aad4f5; text-decoration: none; font-size: 0.9rem; }
+    .topbar a:hover { color: #fff; }
+    .container { max-width: 500px; margin: 40px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; }
+    .card-header { background: #B8860B; color: #fff; padding: 12px 20px; font-weight: bold; font-size: 0.95rem; }
+    .card-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    label { font-weight: bold; font-size: 0.9rem; color: #333; display: block; margin-bottom: 5px; }
+    input {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem;
+    }
+    input:focus { outline: none; border-color: #1A5276; }
+    .btn { padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: bold; color: #fff; }
+    .btn-gold { background: #B8860B; }
+    .btn-blue { background: #1A5276; }
+    .btn:hover { opacity: 0.85; }
+    .message { padding: 10px 16px; border-radius: 6px; font-weight: bold; font-size: 0.9rem; }
+    .message.success { background: #C6EFCE; color: #1e6631; }
+    .message.error   { background: #FFC7CE; color: #9c1e1e; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .note { font-size: 0.82rem; color: #888; margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <h1>⚙️ &nbsp; Device Settings</h1>
+  <a href="/">← Back to Home</a>
+</div>
+
+<div class="container">
+  <div class="card">
+    <div class="card-header">🔧 &nbsp; Biometric Device Connection</div>
+    <div class="card-body">
+
+      {% if message %}
+        <div class="message {% if '✅' in message %}success{% else %}error{% endif %}">
+          {{ message }}
+        </div>
+      {% endif %}
+
+      <form method="POST" style="display:flex;flex-direction:column;gap:16px;">
+
+        <div>
+          <label>Device IP Address</label>
+          <input type="text" name="device_ip" value="{{ device_ip }}" placeholder="192.168.0.126"/>
+          <p class="note">IP address of your Identix biometric device</p>
+        </div>
+
+        <div>
+          <label>Device Port</label>
+          <input type="number" name="device_port" value="{{ device_port }}" placeholder="4370"/>
+          <p class="note">Default is 4370 for all Identix devices</p>
+        </div>
+
+        <div>
+          <label>Connection Password</label>
+          <input type="number" name="device_password" value="{{ device_password }}" placeholder="0"/>
+          <p class="note">Default is 0 — check device menu if connection fails</p>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" class="btn btn-gold">💾 Save Settings</button>
+          <a href="/"><button type="button" class="btn btn-blue">← Back</button></a>
+        </div>
+
+      </form>
+
+      <!-- Test connection -->
+      <form action="/pull-device" method="POST" style="margin-top:8px;">
+        <button type="submit" class="btn" style="background:#0E6655;width:100%;">
+          📥 Test Connection &amp; Pull Data Now
+        </button>
+      </form>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

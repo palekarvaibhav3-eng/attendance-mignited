@@ -793,7 +793,13 @@ def upload_file():
 
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
-        generate_report(filepath)
+
+        # Merge uploaded file into master log (deduped)
+        added = merge_into_master_log(filepath)
+        print(f"Merged {added} new punches into master log")
+
+        # Always generate report from full master log
+        generate_report(LIVE_LOG)
         return render_template("dashboard.html", filename="Identix_Attendance_Report.xlsx")
 
     except Exception as e:
@@ -808,15 +814,102 @@ def download_file(filename):
 
 
 # ==========================================================
+# DATE FILTER HELPER
+# ==========================================================
+def _passes_filter(dt, filter_type, now, custom_start=None, custom_end=None):
+    """Return True if datetime dt passes the given filter."""
+    from datetime import timedelta
+    if filter_type == "today":
+        return dt.date() == now.date()
+    elif filter_type == "week":
+        return (now.date() - dt.date()).days <= 6
+    elif filter_type == "last_week":
+        start = now.date() - timedelta(days=now.weekday() + 7)
+        end   = start + timedelta(days=6)
+        return start <= dt.date() <= end
+    elif filter_type == "month":
+        return dt.month == now.month and dt.year == now.year
+    elif filter_type == "last_month":
+        if now.month == 1:
+            return dt.month == 12 and dt.year == now.year - 1
+        return dt.month == now.month - 1 and dt.year == now.year
+    elif filter_type == "year":
+        return dt.year == now.year
+    elif filter_type == "custom":
+        if custom_start and custom_end:
+            return custom_start <= dt.date() <= custom_end
+        return True
+    return True   # "all"
+
+
+# ==========================================================
 # LIVE BIOMETRIC RECEIVER  (Identix K21 / K30 Pro ADMS push)
 # ==========================================================
 LIVE_LOG = os.path.join(UPLOAD_FOLDER, "live_attendance.dat")
 _regen_lock = False   # prevent overlapping report regenerations
 
+
+def _load_master_log():
+    """Load all existing punch lines from master log as a set of tuples for dedup."""
+    existing = set()
+    if os.path.exists(LIVE_LOG):
+        with open(LIVE_LOG, encoding="utf-8") as f:
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) >= 2:
+                    existing.add((parts[0].strip(), parts[1].strip()))
+    return existing
+
+
+def merge_into_master_log(dat_file):
+    """Merge all punches from a .dat file into live_attendance.dat, no duplicates."""
+    existing = _load_master_log()
+    new_lines = []
+    try:
+        with open(dat_file, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) < 2:
+                    # try space-separated
+                    parts = line.split()
+                if len(parts) < 2:
+                    continue
+                emp_id   = parts[0].strip()
+                datetime_str = parts[1].strip()
+                # For space-sep format: date and time are separate tokens
+                if len(datetime_str) == 10 and len(parts) >= 3:
+                    datetime_str = f"{datetime_str} {parts[2].strip()}"
+                key = (emp_id, datetime_str)
+                if key not in existing:
+                    existing.add(key)
+                    # Rebuild as tab-separated with 6 columns
+                    verify   = parts[3].strip() if len(parts) > 3 else "1"
+                    inout    = parts[4].strip() if len(parts) > 4 else "0"
+                    workcode = parts[5].strip() if len(parts) > 5 else "0"
+                    new_lines.append(
+                        f"{emp_id}\t{datetime_str}\t{verify}\t{inout}\t{workcode}\t0\n"
+                    )
+    except Exception as e:
+        print(f"merge_into_master_log error: {e}")
+        return 0
+
+    if new_lines:
+        with open(LIVE_LOG, "a", encoding="utf-8") as f:
+            f.writelines(new_lines)
+
+    return len(new_lines)
+
+
 def _append_punch(emp_id, datetime_str, verify, inout, workcode):
-    """Append a single punch line to live_attendance.dat"""
-    with open(LIVE_LOG, "a", encoding="utf-8") as f:
-        f.write(f"{emp_id}\t{datetime_str}\t{verify}\t{inout}\t{workcode}\t0\n")
+    """Append a single live punch to master log if not duplicate."""
+    existing = _load_master_log()
+    key = (str(emp_id), datetime_str)
+    if key not in existing:
+        with open(LIVE_LOG, "a", encoding="utf-8") as f:
+            f.write(f"{emp_id}\t{datetime_str}\t{verify}\t{inout}\t{workcode}\t0\n")
 
 
 def _safe_regen():
@@ -829,7 +922,7 @@ def _safe_regen():
         global COMPANY_NAME, EMPLOYEES
         COMPANY_NAME, EMPLOYEES = load_config()
         if os.path.exists(LIVE_LOG) and os.path.getsize(LIVE_LOG) > 0:
-            generate_report(LIVE_LOG)
+            generate_report(LIVE_LOG)   # always from master log
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -885,21 +978,304 @@ def biometric_receiver():
 
 @app.route("/live")
 def live_status():
-    """Shows live punch log and last report generation time."""
+    """Shows live punch log with filter options."""
+    from datetime import timedelta
+    filter_type  = request.args.get("filter", "today")
+    custom_start = None
+    custom_end   = None
+    now          = datetime.now()
+
+    # Parse custom date range
+    if filter_type == "custom":
+        try:
+            from datetime import date as date_cls
+            custom_start = date_cls.fromisoformat(request.args.get("start", ""))
+            custom_end   = date_cls.fromisoformat(request.args.get("end", ""))
+        except ValueError:
+            filter_type = "all"
+
     punches = []
     if os.path.exists(LIVE_LOG):
         with open(LIVE_LOG, encoding="utf-8") as f:
-            for line in f.readlines()[-50:]:   # last 50 punches
+            for line in f.readlines():
                 parts = line.strip().split("\t")
-                if len(parts) >= 3:
-                    punches.append({
-                        "emp_id":   parts[0],
-                        "datetime": parts[1],
-                        "name":     EMPLOYEES.get(int(parts[0]), "Unknown") if parts[0].isdigit() else "Unknown"
-                    })
-    punches.reverse()   # latest first
-    return render_template("live.html", punches=punches,
+                if len(parts) < 2:
+                    continue
+                try:
+                    dt = datetime.strptime(parts[1].strip(), "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    continue
+                if not _passes_filter(dt, filter_type, now, custom_start, custom_end):
+                    continue
+                punches.append({
+                    "emp_id":   parts[0].strip(),
+                    "datetime": parts[1].strip(),
+                    "name":     EMPLOYEES.get(int(parts[0].strip()), "Unknown")
+                              if parts[0].strip().isdigit() else "Unknown"
+                })
+
+    punches.reverse()
+    return render_template("live.html",
+                           punches=punches,
+                           filter_type=filter_type,
+                           custom_start=str(custom_start) if custom_start else "",
+                           custom_end=str(custom_end)   if custom_end   else "",
                            report_exists=os.path.exists(OUTPUT_FILE))
+
+
+@app.route("/live/download")
+def live_download():
+    """Generate and download Excel report filtered by date range."""
+    import tempfile
+    filter_type = request.args.get("filter", "today")
+    now         = datetime.now()
+
+    if not os.path.exists(LIVE_LOG) or os.path.getsize(LIVE_LOG) == 0:
+        return "No live data available yet.", 400
+
+    # Parse custom dates if needed
+    custom_start = None
+    custom_end   = None
+    if filter_type == "custom":
+        try:
+            from datetime import date as date_cls
+            custom_start = date_cls.fromisoformat(request.args.get("start", ""))
+            custom_end   = date_cls.fromisoformat(request.args.get("end", ""))
+        except ValueError:
+            filter_type = "all"
+
+    # Filter lines from live log into a temp file
+    filtered_lines = []
+    with open(LIVE_LOG, encoding="utf-8") as f:
+        for line in f.readlines():
+            parts = line.strip().split("\t")
+            if len(parts) < 2:
+                continue
+            try:
+                dt = datetime.strptime(parts[1].strip(), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+            if not _passes_filter(dt, filter_type, now, custom_start, custom_end):
+                continue
+            filtered_lines.append(line)
+
+    if not filtered_lines:
+        return "No data found for the selected period.", 400
+
+    # Write filtered lines to temp file and generate report
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".dat",
+                                      delete=False, encoding="utf-8")
+    tmp.writelines(filtered_lines)
+    tmp.close()
+
+    try:
+        global COMPANY_NAME, EMPLOYEES, OUTPUT_FILE
+        COMPANY_NAME, EMPLOYEES = load_config()
+
+        filter_labels = {
+            "today":     "Today",
+            "week":      "This_Week",
+            "last_week": "Last_Week",
+            "month":     "This_Month",
+            "last_month":"Last_Month",
+            "year":      "This_Year",
+            "custom":    f"Custom_{request.args.get('start','')}_{request.args.get('end','')}",
+            "all":       "All_Data"
+        }
+        label    = filter_labels.get(filter_type, filter_type)
+        out_file = os.path.join(UPLOAD_FOLDER,
+                                f"Attendance_Report_{label}.xlsx")
+
+        # Temporarily swap OUTPUT_FILE so generate_report writes to out_file
+        orig_output = OUTPUT_FILE
+        OUTPUT_FILE = out_file
+
+        try:
+            generate_report(tmp.name)
+        finally:
+            OUTPUT_FILE = orig_output   # always restore
+
+        if not os.path.exists(out_file):
+            return "Report could not be generated. Please upload data first.", 400
+
+        return send_file(out_file, as_attachment=True,
+                         download_name=f"Attendance_Report_{label}.xlsx")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"<pre>{traceback.format_exc()}</pre>", 500
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+
+
+
+# ==========================================================
+# PULL DATA FROM DEVICE  (ZKTeco/Identix TCP protocol)
+# ==========================================================
+
+DEVICE_IP       = "192.168.0.126"
+DEVICE_PORT     = 4370
+DEVICE_PASSWORD = 0   # default; change if device has different password
+
+
+def _pull_zk_data(filter_type="all", **kwargs):
+    """
+    Connect to Identix device via pyzk, pull attendance logs filtered
+    by date range, merge into master log.
+    Returns (added, total_on_device, filtered_count, error_msg).
+    """
+    try:
+        from zk import ZK
+    except ImportError:
+        return 0, 0, 0, "pyzk not installed. Run: pip install pyzk"
+
+    zk = ZK(DEVICE_IP, port=DEVICE_PORT, timeout=10,
+             password=DEVICE_PASSWORD, force_udp=False, ommit_ping=False)
+    conn = None
+    now  = datetime.now()
+
+    try:
+        conn = zk.connect()
+        conn.disable_device()
+
+        attendances  = conn.get_attendance()
+        total_device = len(attendances)
+
+        if total_device == 0:
+            return 0, 0, 0, "No attendance records found on device."
+
+        # Parse custom dates
+        custom_start = None
+        custom_end   = None
+        if filter_type == "custom":
+            try:
+                from datetime import date as date_cls
+                cs = kwargs.get("custom_start")
+                ce = kwargs.get("custom_end")
+                custom_start = date_cls.fromisoformat(cs) if cs else None
+                custom_end   = date_cls.fromisoformat(ce) if ce else None
+            except (ValueError, AttributeError):
+                filter_type = "all"
+
+        # Apply date filter
+        filtered = []
+        for att in attendances:
+            dt = att.timestamp
+            if _passes_filter(dt, filter_type, now, custom_start, custom_end):
+                filtered.append(att)
+
+        filtered_count = len(filtered)
+        if filtered_count == 0:
+            return 0, total_device, 0, None
+
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".dat",
+                                          delete=False, encoding="utf-8")
+        for att in filtered:
+            dt_str = att.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            tmp.write(f"{att.user_id}\t{dt_str}\t1\t{att.punch}\t0\t0\n")
+        tmp.close()
+
+        added = merge_into_master_log(tmp.name)
+        os.unlink(tmp.name)
+
+        return added, total_device, filtered_count, None
+
+    except Exception as e:
+        return 0, 0, 0, str(e)
+    finally:
+        if conn:
+            try:
+                conn.enable_device()
+                conn.disconnect()
+            except Exception:
+                pass
+
+
+@app.route("/pull-device", methods=["GET"])
+def pull_device_page():
+    """Show filter selection page before pulling data."""
+    return render_template("pull_device.html",
+                           device_ip=DEVICE_IP,
+                           device_port=DEVICE_PORT)
+
+
+@app.route("/pull-device", methods=["POST"])
+def pull_device():
+    """Pull attendance data from biometric device filtered by date range."""
+    try:
+        global COMPANY_NAME, EMPLOYEES
+        COMPANY_NAME, EMPLOYEES = load_config()
+
+        filter_type = request.form.get("filter", "all")
+        filter_labels = {
+            "today":     "Today",
+            "week":      "This Week",
+            "last_week": "Last Week",
+            "month":     "This Month",
+            "last_month":"Last Month",
+            "year":      "This Year",
+            "custom":    "Custom Range",
+            "all":       "All Data"
+        }
+        filter_label = filter_labels.get(filter_type, "All Data")
+
+        custom_start = request.form.get("start", "")
+        custom_end   = request.form.get("end", "")
+        added, total_device, filtered_count, error = _pull_zk_data(
+            filter_type, custom_start=custom_start, custom_end=custom_end
+        )
+
+        if error:
+            return render_template("pull_device.html",
+                                   device_ip=DEVICE_IP,
+                                   device_port=DEVICE_PORT,
+                                   error=error), 500
+
+        # Regenerate Excel from updated master log
+        if added > 0 and os.path.exists(LIVE_LOG):
+            generate_report(LIVE_LOG)
+
+        return render_template("pull_device.html",
+                               device_ip=DEVICE_IP,
+                               device_port=DEVICE_PORT,
+                               success=True,
+                               filter_label=filter_label,
+                               filter_type=filter_type,
+                               total_device=total_device,
+                               filtered_count=filtered_count,
+                               added=added,
+                               skipped=filtered_count - added)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"<h2>Error</h2><pre>{traceback.format_exc()}</pre>", 500
+
+
+@app.route("/device-settings", methods=["GET", "POST"])
+def device_settings():
+    """Page to update device IP, port and password."""
+    global DEVICE_IP, DEVICE_PORT, DEVICE_PASSWORD
+    message = ""
+
+    if request.method == "POST":
+        try:
+            DEVICE_IP       = request.form.get("device_ip", DEVICE_IP).strip()
+            DEVICE_PORT     = int(request.form.get("device_port", DEVICE_PORT))
+            DEVICE_PASSWORD = int(request.form.get("device_password", DEVICE_PASSWORD))
+            message = "✅ Settings saved!"
+        except ValueError:
+            message = "❌ Invalid port or password — must be numbers."
+
+    return render_template("device_settings.html",
+                           device_ip=DEVICE_IP,
+                           device_port=DEVICE_PORT,
+                           device_password=DEVICE_PASSWORD,
+                           message=message)
 
 
 if __name__ == "__main__":
